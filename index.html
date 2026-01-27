@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Scanner Pro</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <title>AI Vision Pro | Scanner</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
     <style>
         :root { --primary: #00f2fe; --bg: #0f172a; }
         body { 
@@ -17,89 +17,91 @@
         .card {
             background: #1e293b; padding: 2rem; border-radius: 20px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center;
-            width: 90%; max-width: 400px; border: 1px solid #334155;
+            width: 90%; max-width: 450px; border: 1px solid #334155;
         }
-        h1 { margin-bottom: 1.5rem; font-size: 1.5rem; color: var(--primary); }
-        #webcam-container { 
+        h1 { margin-bottom: 0.5rem; font-size: 1.8rem; color: var(--primary); }
+        p { color: #94a3b8; margin-bottom: 1.5rem; font-size: 0.9rem; }
+        #video-container { 
             width: 100%; border-radius: 15px; overflow: hidden;
-            background: #000; line-height: 0; margin-bottom: 1rem;
-            border: 2px solid var(--primary);
+            background: #000; margin-bottom: 1rem;
+            border: 2px solid var(--primary); position: relative;
         }
-        #webcam-container canvas { width: 100% !important; height: auto !important; }
-        button {
+        video { width: 100%; height: auto; display: block; }
+        .btn-start {
             background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-            color: #0f172a; border: none; padding: 12px 24px;
-            border-radius: 10px; font-weight: bold; cursor: pointer;
-            width: 100%; font-size: 1rem; transition: transform 0.2s;
+            color: #0f172a; border: none; padding: 15px;
+            border-radius: 12px; font-weight: bold; cursor: pointer;
+            width: 100%; font-size: 1.1rem;
         }
-        button:active { transform: scale(0.95); }
-        #label-container { margin-top: 1.5rem; text-align: left; }
-        .prediction-bar { margin-bottom: 10px; font-size: 0.9rem; }
+        #result {
+            margin-top: 1.5rem; padding: 10px;
+            background: rgba(0, 242, 254, 0.1);
+            border-radius: 10px; border-left: 4px solid var(--primary);
+            text-align: left; display: none;
+        }
+        .obj-name { color: var(--primary); font-weight: bold; text-transform: capitalize; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>AI Scanner <span style="color:white">Pro</span></h1>
-        <div id="webcam-container"></div>
-        <button id="start-btn" onclick="init()">ENCENDER ESCÁNER</button>
-        <div id="label-container"></div>
+        <h1>AI Vision <span style="color:white">Pro</span></h1>
+        <p>Reconocimiento de objetos en tiempo real</p>
+        
+        <div id="video-container">
+            <video id="webcam" autoplay playsinline></video>
+        </div>
+
+        <button class="btn-start" id="btn" onclick="setupApp()">ACTIVAR CÁMARA</button>
+
+        <div id="result">
+            Detectado: <span id="object" class="obj-name">Cargando...</span><br>
+            Confianza: <span id="conf">0%</span>
+        </div>
     </div>
 
     <script>
-        // --- PEGA TU LINK AQUÍ ABAJO ---
-        const URL = "TU_LINK_DE_TEACHABLE_MACHINE_AQUÍ"; 
-        // ------------------------------
+        let model;
+        const video = document.getElementById('webcam');
+        const btn = document.getElementById('btn');
+        const resultDiv = document.getElementById('result');
 
-        let model, webcam, labelContainer, maxPredictions;
-
-        async function init() {
-            document.getElementById("start-btn").innerText = "Cargando IA...";
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
+        async function setupApp() {
+            btn.innerText = "Iniciando IA...";
+            btn.disabled = true;
 
             try {
-                model = await tmImage.load(modelURL, metadataURL);
-                maxPredictions = model.getTotalClasses();
+                // 1. Pedir permiso de cámara
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" },
+                    audio: false
+                });
+                video.srcObject = stream;
 
-                // Ajustes para máxima compatibilidad móvil
-                webcam = new tmImage.Webcam(400, 400, false); // false = no rotar espejo
-                await webcam.setup({ facingMode: "environment" }); // Usa cámara trasera
+                // 2. Cargar el modelo MobileNet
+                model = await mobilenet.load();
                 
-                await webcam.play();
-                document.getElementById("start-btn").style.display = "none";
-                window.requestAnimationFrame(loop);
-
-                document.getElementById("webcam-container").appendChild(webcam.canvas);
-                labelContainer = document.getElementById("label-container");
-                for (let i = 0; i < maxPredictions; i++) {
-                    labelContainer.appendChild(document.createElement("div"));
-                }
-            } catch (e) {
-                alert("Error al acceder a la cámara. Asegúrate de usar HTTPS y dar permisos.");
-                console.error(e);
+                btn.style.display = "none";
+                resultDiv.style.display = "block";
+                
+                predict();
+            } catch (err) {
+                alert("Error: No se pudo acceder a la cámara o cargar la IA.");
+                btn.innerText = "REINTENTAR";
+                btn.disabled = false;
             }
-        }
-
-        async function loop() {
-            webcam.update();
-            await predict();
-            window.requestAnimationFrame(loop);
         }
 
         async function predict() {
-            const prediction = await model.predict(webcam.canvas);
-            for (let i = 0; i < maxPredictions; i++) {
-                const p = prediction[i];
-                const percentage = (p.probability * 100).toFixed(0);
-                labelContainer.childNodes[i].innerHTML = `
-                    <div class="prediction-bar">
-                        ${p.className}: ${percentage}%
-                        <div style="background:#334155; height:8px; border-radius:4px; margin-top:4px">
-                            <div style="background:var(--primary); height:100%; width:${percentage}%; border-radius:4px"></div>
-                        </div>
-                    </div>`;
+            const predictions = await model.classify(video);
+            
+            if (predictions.length > 0) {
+                // Mostramos el resultado con más probabilidad (el primero)
+                document.getElementById('object').innerText = predictions[0].className.split(',')[0];
+                document.getElementById('conf').innerText = Math.round(predictions[0].probability * 100) + "%";
             }
+
+            requestAnimationFrame(predict);
         }
     </script>
 </body>
