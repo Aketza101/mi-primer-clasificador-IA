@@ -3,53 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi IA Clasificadora</title>
+    <title>AI Scanner Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
-        #webcam-container { margin-top: 20px; border: 5px solid #333; border-radius: 10px; display: inline-block; overflow: hidden; }
-        #label-container { margin-top: 20px; font-size: 20px; font-weight: bold; }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        :root { --primary: #00f2fe; --bg: #0f172a; }
+        body { 
+            background: var(--bg); color: white; 
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 100vh; margin: 0;
+        }
+        .card {
+            background: #1e293b; padding: 2rem; border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center;
+            width: 90%; max-width: 400px; border: 1px solid #334155;
+        }
+        h1 { margin-bottom: 1.5rem; font-size: 1.5rem; color: var(--primary); }
+        #webcam-container { 
+            width: 100%; border-radius: 15px; overflow: hidden;
+            background: #000; line-height: 0; margin-bottom: 1rem;
+            border: 2px solid var(--primary);
+        }
+        #webcam-container canvas { width: 100% !important; height: auto !important; }
+        button {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            color: #0f172a; border: none; padding: 12px 24px;
+            border-radius: 10px; font-weight: bold; cursor: pointer;
+            width: 100%; font-size: 1rem; transition: transform 0.2s;
+        }
+        button:active { transform: scale(0.95); }
+        #label-container { margin-top: 1.5rem; text-align: left; }
+        .prediction-bar { margin-bottom: 10px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
-    <h1>Escáner de IA</h1>
-    <button type="button" onclick="init()">Activar Cámara</button>
-    <div id="webcam-container"></div>
-    <div id="label-container"></div>
 
-    <script type="text/javascript">
-        // PEGA TU LINK DE TEACHABLE MACHINE AQUÍ ABAJO
-        const URL = "https://teachablemachine.withgoogle.com/models/abcd123/"; 
+    <div class="card">
+        <h1>AI Scanner <span style="color:white">Pro</span></h1>
+        <div id="webcam-container"></div>
+        <button id="start-btn" onclick="init()">ENCENDER ESCÁNER</button>
+        <div id="label-container"></div>
+    </div>
+
+    <script>
+        // --- PEGA TU LINK AQUÍ ABAJO ---
+        const URL = "TU_LINK_DE_TEACHABLE_MACHINE_AQUÍ"; 
+        // ------------------------------
 
         let model, webcam, labelContainer, maxPredictions;
 
         async function init() {
+            document.getElementById("start-btn").innerText = "Cargando IA...";
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
 
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
 
-            // Configuración específica para móviles
-            const flip = true; 
-            webcam = new tmImage.Webcam(300, 300, flip); 
-            
-            // Esto es lo que pide permiso en el móvil
-            await webcam.setup({ facingMode: "environment" }); 
-            await webcam.play();
-            window.requestAnimationFrame(loop);
+                // Ajustes para máxima compatibilidad móvil
+                webcam = new tmImage.Webcam(400, 400, false); // false = no rotar espejo
+                await webcam.setup({ facingMode: "environment" }); // Usa cámara trasera
+                
+                await webcam.play();
+                document.getElementById("start-btn").style.display = "none";
+                window.requestAnimationFrame(loop);
 
-            document.getElementById("webcam-container").appendChild(webcam.canvas);
-            labelContainer = document.getElementById("label-container");
-            for (let i = 0; i < maxPredictions; i++) {
-                labelContainer.appendChild(document.createElement("div"));
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+                labelContainer = document.getElementById("label-container");
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+            } catch (e) {
+                alert("Error al acceder a la cámara. Asegúrate de usar HTTPS y dar permisos.");
+                console.error(e);
             }
         }
 
         async function loop() {
-            webcam.update(); 
+            webcam.update();
             await predict();
             window.requestAnimationFrame(loop);
         }
@@ -57,9 +90,15 @@
         async function predict() {
             const prediction = await model.predict(webcam.canvas);
             for (let i = 0; i < maxPredictions; i++) {
-                const classPrediction =
-                    prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
-                labelContainer.childNodes[i].innerHTML = classPrediction;
+                const p = prediction[i];
+                const percentage = (p.probability * 100).toFixed(0);
+                labelContainer.childNodes[i].innerHTML = `
+                    <div class="prediction-bar">
+                        ${p.className}: ${percentage}%
+                        <div style="background:#334155; height:8px; border-radius:4px; margin-top:4px">
+                            <div style="background:var(--primary); height:100%; width:${percentage}%; border-radius:4px"></div>
+                        </div>
+                    </div>`;
             }
         }
     </script>
