@@ -1,147 +1,125 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Detective Pro</title>
+    <title>AI Global Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
     <style>
         :root { --primary: #00f2fe; --bg: #0f172a; --card-bg: #1e293b; }
         body { 
-            background: var(--bg); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif;
             display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px;
         }
         .container { width: 100%; max-width: 500px; }
         .card {
-            background: var(--card-bg); padding: 20px; border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; border: 1px solid #334155;
+            background: var(--card-bg); padding: 25px; border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7); text-align: center; border: 1px solid #334155;
         }
-        h1 { margin-top: 0; color: var(--primary); font-size: 1.5rem; }
+        h1 { margin-top: 0; font-size: 1.6rem; letter-spacing: 1px; }
+        .highlight { color: var(--primary); }
         #video-container { 
             width: 100%; border-radius: 15px; overflow: hidden; background: #000;
-            margin: 15px 0; border: 2px solid var(--primary); line-height: 0;
+            margin: 20px 0; border: 2px solid var(--primary); line-height: 0;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
         }
         video { width: 100%; height: auto; }
         .btn-main {
             background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-            color: #0f172a; border: none; padding: 15px; border-radius: 12px;
-            font-weight: bold; cursor: pointer; width: 100%; font-size: 1rem;
+            color: #0f172a; border: none; padding: 18px; border-radius: 12px;
+            font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem;
+            text-transform: uppercase; transition: 0.3s;
         }
+        .btn-main:active { transform: scale(0.98); }
         #result-box {
-            margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05);
-            border-radius: 12px; display: none; text-align: left;
+            margin-top: 25px; padding: 15px; background: rgba(255,255,255,0.03);
+            border-radius: 12px; display: none; border-left: 4px solid var(--primary);
         }
-        .obj-name { color: var(--primary); font-size: 1.2rem; font-weight: bold; display: block; }
-        
-        /* SECCIÓN INVENTARIO */
+        .obj-name { font-size: 1.4rem; font-weight: bold; display: block; margin-bottom: 5px; }
         .inventory {
-            margin-top: 20px; background: var(--card-bg); border-radius: 20px;
+            margin-top: 25px; background: var(--card-bg); border-radius: 20px;
             padding: 20px; border: 1px solid #334155; width: 100%; box-sizing: border-box;
         }
-        .inventory h2 { font-size: 1rem; color: #94a3b8; margin-top: 0; text-transform: uppercase; }
-        #inventory-list { list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; }
+        #inventory-list { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
         .inventory-item { 
-            padding: 8px 0; border-bottom: 1px solid #334155; font-size: 0.9rem;
-            display: flex; justify-content: space-between;
+            padding: 10px 0; border-bottom: 1px solid #334155; font-size: 0.95rem;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        .inventory-item:last-child { border: none; }
-        .timestamp { color: #64748b; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="card">
-            <h1>AI DETECTIVE <span style="color:white">PRO</span></h1>
+            <h1>AI VISION <span class="highlight">GLOBAL</span></h1>
             <div id="video-container">
                 <video id="webcam" autoplay playsinline></video>
             </div>
-            <button class="btn-main" id="start-btn" onclick="init()">ACTIVAR ESCÁNER</button>
+            <button class="btn-main" id="start-btn" onclick="init()">Launch Scanner</button>
 
             <div id="result-box">
-                <span class="obj-name" id="obj-span">Analizando...</span>
-                <span id="conf-span" style="font-size: 0.8rem; color: #94a3b8;">Probabilidad: 0%</span>
+                <span class="obj-name" id="obj-span">Scanning...</span>
+                <span id="conf-span" style="color: #94a3b8;">Confidence: 0%</span>
             </div>
         </div>
 
         <div class="inventory">
-            <h2>Objetos Detectados</h2>
+            <h2 style="font-size: 0.9rem; color: #64748b; margin-top: 0;">DETECTION LOG</h2>
             <ul id="inventory-list">
-                <li style="color: #64748b; font-style: italic;">Tu historial aparecerá aquí...</li>
+                <li style="color: #64748b; font-style: italic;">Awaiting first detection...</li>
             </ul>
         </div>
     </div>
 
     <script>
-        const TRADUCCIONES = {
-            'cellular telephone': 'Teléfono Móvil',
-            'mobile phone': 'Teléfono Móvil',
-            'water bottle': 'Botella de Agua',
-            'coffee mug': 'Taza de Café',
-            'laptop': 'Ordenador Portátil',
-            'mouse': 'Ratón / Mouse',
-            'remote control': 'Mando a Distancia',
-            'computer keyboard': 'Teclado',
-            'notebook': 'Libreta',
-            'television': 'Televisión',
-            'web site': 'Página Web (Monitor)',
-            'desktop computer': 'Ordenador'
-        };
-
         let model;
         let lastDetected = "";
         const video = document.getElementById('webcam');
         const inventoryList = document.getElementById('inventory-list');
 
         async function init() {
-            document.getElementById('start-btn').innerText = "Cargando IA...";
+            document.getElementById('start-btn').innerText = "Loading AI...";
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "environment" },
                     audio: false
                 });
                 video.srcObject = stream;
-                
                 model = await mobilenet.load();
-                
                 document.getElementById('start-btn').style.display = "none";
                 document.getElementById('result-box').style.display = "block";
                 predict();
             } catch (err) {
-                alert("Error de cámara: Asegúrate de usar HTTPS y dar permisos.");
+                alert("Camera error: Please use HTTPS and grant permissions.");
             }
         }
 
         async function predict() {
             const predictions = await model.classify(video);
             if (predictions.length > 0) {
-                let inglesRaw = predictions[0].className.split(',')[0].toLowerCase();
-                let inglesLimpio = inglesRaw.replace(/_/g, ' ');
-                let español = TRADUCCIONES[inglesLimpio] || (inglesLimpio.charAt(0).toUpperCase() + inglesLimpio.slice(1));
-                
-                document.getElementById('obj-span').innerText = español;
-                document.getElementById('conf-span').innerText = "Seguridad: " + Math.round(predictions[0].probability * 100) + "%";
+                // LIMPIEZA DE TEXTO PROFESIONAL
+                let rawName = predictions[0].className.split(',')[0]; // Coge solo la primera palabra
+                let cleanName = rawName.replace(/_/g, ' '); // Quita guiones bajos
+                cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1); // Mayúscula inicial
 
-                // Lógica de Inventario: Si la seguridad es alta (>70%) y es un objeto nuevo, lo guardamos
-                if (predictions[0].probability > 0.70 && español !== lastDetected) {
-                    addToInventory(español);
-                    lastDetected = español;
+                document.getElementById('obj-span').innerText = cleanName;
+                document.getElementById('conf-span').innerText = "Confidence: " + Math.round(predictions[0].probability * 100) + "%";
+
+                if (predictions[0].probability > 0.65 && cleanName !== lastDetected) {
+                    addToInventory(cleanName);
+                    lastDetected = cleanName;
                 }
             }
             requestAnimationFrame(predict);
         }
 
         function addToInventory(item) {
-            // Quitar el mensaje de "historial vacío" la primera vez
-            if (inventoryList.innerText.includes("historial aparecerá")) inventoryList.innerHTML = "";
-            
+            if (inventoryList.innerText.includes("Awaiting")) inventoryList.innerHTML = "";
             const li = document.createElement('li');
             li.className = 'inventory-item';
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            li.innerHTML = `<span>🔍 ${item}</span> <span class="timestamp">${time}</span>`;
-            
-            // Insertar al principio de la lista
+            li.innerHTML = `<span>⚡ ${item}</span> <span style="color:#64748b; font-size:0.8rem">${time}</span>`;
             inventoryList.insertBefore(li, inventoryList.firstChild);
         }
     </script>
