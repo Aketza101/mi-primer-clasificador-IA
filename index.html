@@ -3,101 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Pro | Español</title>
+    <title>AI Detective Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
     <style>
-        :root { --primary: #00f2fe; --bg: #0f172a; --accent: #4facfe; }
+        :root { --primary: #00f2fe; --bg: #0f172a; --card-bg: #1e293b; }
         body { 
-            background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            min-height: 100vh; margin: 0; overflow: hidden;
+            background: var(--bg); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px;
         }
+        .container { width: 100%; max-width: 500px; }
         .card {
-            background: #1e293b; padding: 2rem; border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6); text-align: center;
-            width: 90%; max-width: 450px; border: 1px solid #334155;
+            background: var(--card-bg); padding: 20px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; border: 1px solid #334155;
         }
-        h1 { margin: 0; font-size: 1.8rem; background: linear-gradient(to right, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        h1 { margin-top: 0; color: var(--primary); font-size: 1.5rem; }
         #video-container { 
-            width: 100%; border-radius: 15px; overflow: hidden;
-            background: #000; margin: 1.5rem 0; border: 2px solid var(--primary);
-            position: relative; box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+            width: 100%; border-radius: 15px; overflow: hidden; background: #000;
+            margin: 15px 0; border: 2px solid var(--primary); line-height: 0;
         }
-        video { width: 100%; display: block; }
-        .btn-start {
+        video { width: 100%; height: auto; }
+        .btn-main {
             background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-            color: #0f172a; border: none; padding: 16px; border-radius: 14px;
-            font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem;
-            transition: all 0.3s ease;
+            color: #0f172a; border: none; padding: 15px; border-radius: 12px;
+            font-weight: bold; cursor: pointer; width: 100%; font-size: 1rem;
         }
-        .btn-start:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 242, 254, 0.4); }
-        #result {
-            margin-top: 1.5rem; padding: 15px; background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px; display: none; animation: fadeIn 0.5s;
+        #result-box {
+            margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05);
+            border-radius: 12px; display: none; text-align: left;
         }
-        .obj-name { color: var(--primary); font-size: 1.4rem; display: block; margin-bottom: 5px; }
-        .conf-text { color: #94a3b8; font-size: 0.9rem; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .obj-name { color: var(--primary); font-size: 1.2rem; font-weight: bold; display: block; }
+        
+        /* SECCIÓN INVENTARIO */
+        .inventory {
+            margin-top: 20px; background: var(--card-bg); border-radius: 20px;
+            padding: 20px; border: 1px solid #334155; width: 100%; box-sizing: border-box;
+        }
+        .inventory h2 { font-size: 1rem; color: #94a3b8; margin-top: 0; text-transform: uppercase; }
+        #inventory-list { list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; }
+        .inventory-item { 
+            padding: 8px 0; border-bottom: 1px solid #334155; font-size: 0.9rem;
+            display: flex; justify-content: space-between;
+        }
+        .inventory-item:last-child { border: none; }
+        .timestamp { color: #64748b; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h1>AI Detector <span style="color:white">Pro</span></h1>
-        
-        <div id="video-container">
-            <video id="webcam" autoplay playsinline></video>
+    <div class="container">
+        <div class="card">
+            <h1>AI DETECTIVE <span style="color:white">PRO</span></h1>
+            <div id="video-container">
+                <video id="webcam" autoplay playsinline></video>
+            </div>
+            <button class="btn-main" id="start-btn" onclick="init()">ACTIVAR ESCÁNER</button>
+
+            <div id="result-box">
+                <span class="obj-name" id="obj-span">Analizando...</span>
+                <span id="conf-span" style="font-size: 0.8rem; color: #94a3b8;">Probabilidad: 0%</span>
+            </div>
         </div>
 
-        <button class="btn-start" id="btn" onclick="setupApp()">INICIAR ESCÁNER</button>
-
-        <div id="result">
-            <span id="object" class="obj-name">Identificando...</span>
-            <span id="conf" class="conf-text">0% de seguridad</span>
+        <div class="inventory">
+            <h2>Objetos Detectados</h2>
+            <ul id="inventory-list">
+                <li style="color: #64748b; font-style: italic;">Tu historial aparecerá aquí...</li>
+            </ul>
         </div>
     </div>
 
     <script>
-       // --- DICCIONARIO AMPLIADO Y CORREGIDO ---
-const TRADUCCIONES = {
-    'cellular telephone': 'Teléfono Móvil',
-    'mobile phone': 'Teléfono Móvil',
-    'mouse': 'Ratón (Mouse)',
-    'computer keyboard': 'Teclado de Ordenador',
-    'laptop': 'Portátil',
-    'water bottle': 'Botella de Agua',
-    'coffee mug': 'Taza',
-    'cup': 'Vaso / Taza',
-    'remote control': 'Mando a Distancia',
-    'window shade': 'Persiana / Cortina',
-    'monitor': 'Pantalla',
-    'desktop computer': 'Ordenador de Sobremesa',
-    'hammer': 'Martillo',
-    'screwdriver': 'Destornillador',
-    'pliers': 'Alicates',
-    'power drill': 'Taladro'
-};
+        const TRADUCCIONES = {
+            'cellular telephone': 'Teléfono Móvil',
+            'mobile phone': 'Teléfono Móvil',
+            'water bottle': 'Botella de Agua',
+            'coffee mug': 'Taza de Café',
+            'laptop': 'Ordenador Portátil',
+            'mouse': 'Ratón / Mouse',
+            'remote control': 'Mando a Distancia',
+            'computer keyboard': 'Teclado',
+            'notebook': 'Libreta',
+            'television': 'Televisión',
+            'web site': 'Página Web (Monitor)',
+            'desktop computer': 'Ordenador'
+        };
 
-async function predict() {
-    const predictions = await model.classify(video);
-    
-    if (predictions.length > 0) {
-        // 1. Cogemos el nombre en inglés y lo limpiamos
-        let inglesRaw = predictions[0].className.split(',')[0].toLowerCase();
-        let inglesLimpio = inglesRaw.replace(/_/g, ' '); // Cambia guiones bajos por espacios
+        let model;
+        let lastDetected = "";
+        const video = document.getElementById('webcam');
+        const inventoryList = document.getElementById('inventory-list');
 
-        // 2. Buscamos si tenemos traducción
-        let español = TRADUCCIONES[inglesLimpio] || inglesLimpio;
-        
-        // 3. Si no hay traducción, ponemos la primera letra en Mayúscula para que no parezca falta
-        if (español === inglesLimpio) {
-            español = español.charAt(0).toUpperCase() + español.slice(1) + " (Sin traducir)";
+        async function init() {
+            document.getElementById('start-btn').innerText = "Cargando IA...";
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" },
+                    audio: false
+                });
+                video.srcObject = stream;
+                
+                model = await mobilenet.load();
+                
+                document.getElementById('start-btn').style.display = "none";
+                document.getElementById('result-box').style.display = "block";
+                predict();
+            } catch (err) {
+                alert("Error de cámara: Asegúrate de usar HTTPS y dar permisos.");
+            }
         }
-        
-        document.getElementById('object').innerText = español;
-        document.getElementById('conf').innerText = Math.round(predictions[0].probability * 100) + "% de seguridad";
-    }
 
-    requestAnimationFrame(predict);
-}
+        async function predict() {
+            const predictions = await model.classify(video);
+            if (predictions.length > 0) {
+                let inglesRaw = predictions[0].className.split(',')[0].toLowerCase();
+                let inglesLimpio = inglesRaw.replace(/_/g, ' ');
+                let español = TRADUCCIONES[inglesLimpio] || (inglesLimpio.charAt(0).toUpperCase() + inglesLimpio.slice(1));
+                
+                document.getElementById('obj-span').innerText = español;
+                document.getElementById('conf-span').innerText = "Seguridad: " + Math.round(predictions[0].probability * 100) + "%";
+
+                // Lógica de Inventario: Si la seguridad es alta (>70%) y es un objeto nuevo, lo guardamos
+                if (predictions[0].probability > 0.70 && español !== lastDetected) {
+                    addToInventory(español);
+                    lastDetected = español;
+                }
+            }
+            requestAnimationFrame(predict);
+        }
+
+        function addToInventory(item) {
+            // Quitar el mensaje de "historial vacío" la primera vez
+            if (inventoryList.innerText.includes("historial aparecerá")) inventoryList.innerHTML = "";
+            
+            const li = document.createElement('li');
+            li.className = 'inventory-item';
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            li.innerHTML = `<span>🔍 ${item}</span> <span class="timestamp">${time}</span>`;
+            
+            // Insertar al principio de la lista
+            inventoryList.insertBefore(li, inventoryList.firstChild);
+        }
+    </script>
+</body>
+</html>
