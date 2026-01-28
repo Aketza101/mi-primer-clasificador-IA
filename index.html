@@ -59,69 +59,45 @@
     </div>
 
     <script>
-        // --- DICCIONARIO DE TRADUCCIÓN ---
-        const TRADUCCIONES = {
-            'cellular telephone': 'Teléfono Móvil',
-            'mobile phone': 'Teléfono Móvil',
-            'laptop': 'Ordenador Portátil',
-            'computer keyboard': 'Teclado',
-            'mouse': 'Ratón',
-            'water bottle': 'Botella de Agua',
-            'coffee mug': 'Taza de Café',
-            'cup': 'Taza / Vaso',
-            'remote control': 'Mando a Distancia',
-            'pen': 'Bolígrafo',
-            'notebook': 'Libreta',
-            'backpack': 'Mochila',
-            'sunglasses': 'Gafas de Sol',
-            'wallet': 'Cartera',
-            'television': 'Televisión'
-            // Puedes añadir más aquí
-        };
+       // --- DICCIONARIO AMPLIADO Y CORREGIDO ---
+const TRADUCCIONES = {
+    'cellular telephone': 'Teléfono Móvil',
+    'mobile phone': 'Teléfono Móvil',
+    'mouse': 'Ratón (Mouse)',
+    'computer keyboard': 'Teclado de Ordenador',
+    'laptop': 'Portátil',
+    'water bottle': 'Botella de Agua',
+    'coffee mug': 'Taza',
+    'cup': 'Vaso / Taza',
+    'remote control': 'Mando a Distancia',
+    'window shade': 'Persiana / Cortina',
+    'monitor': 'Pantalla',
+    'desktop computer': 'Ordenador de Sobremesa',
+    'hammer': 'Martillo',
+    'screwdriver': 'Destornillador',
+    'pliers': 'Alicates',
+    'power drill': 'Taladro'
+};
 
-        let model;
-        const video = document.getElementById('webcam');
-        const btn = document.getElementById('btn');
-        const resultDiv = document.getElementById('result');
+async function predict() {
+    const predictions = await model.classify(video);
+    
+    if (predictions.length > 0) {
+        // 1. Cogemos el nombre en inglés y lo limpiamos
+        let inglesRaw = predictions[0].className.split(',')[0].toLowerCase();
+        let inglesLimpio = inglesRaw.replace(/_/g, ' '); // Cambia guiones bajos por espacios
 
-        async function setupApp() {
-            btn.innerText = "Cargando Cerebro IA...";
-            btn.disabled = true;
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" },
-                    audio: false
-                });
-                video.srcObject = stream;
-
-                model = await mobilenet.load();
-                
-                btn.style.display = "none";
-                resultDiv.style.display = "block";
-                
-                predict();
-            } catch (err) {
-                alert("Error al iniciar. Asegúrate de dar permisos a la cámara.");
-                btn.innerText = "REINTENTAR";
-                btn.disabled = false;
-            }
+        // 2. Buscamos si tenemos traducción
+        let español = TRADUCCIONES[inglesLimpio] || inglesLimpio;
+        
+        // 3. Si no hay traducción, ponemos la primera letra en Mayúscula para que no parezca falta
+        if (español === inglesLimpio) {
+            español = español.charAt(0).toUpperCase() + español.slice(1) + " (Sin traducir)";
         }
+        
+        document.getElementById('object').innerText = español;
+        document.getElementById('conf').innerText = Math.round(predictions[0].probability * 100) + "% de seguridad";
+    }
 
-        async function predict() {
-            const predictions = await model.classify(video);
-            
-            if (predictions.length > 0) {
-                let ingles = predictions[0].className.split(',')[0].toLowerCase();
-                // Si existe traducción la ponemos, si no, dejamos el original
-                let español = TRADUCCIONES[ingles] || ingles;
-                
-                document.getElementById('object').innerText = español;
-                document.getElementById('conf').innerText = Math.round(predictions[0].probability * 100) + "% de seguridad";
-            }
-
-            requestAnimationFrame(predict);
-        }
-    </script>
-</body>
-</html>
+    requestAnimationFrame(predict);
+}
